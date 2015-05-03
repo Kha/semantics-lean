@@ -125,8 +125,38 @@ namespace bigstep
     revert H₂,
     revert σ₂,
     eapply bigstep.induction_on H₁,
-    { intro σ σ₂ H₂, cases H₂, apply rfl },
-    { intro x a σ σ₂ H₂, cases H₂, apply rfl },
-    { clear H₁ c σ σ₁, intro c₁ c₂ σ σ' σ'' Hc₁ Hc₂ Hind₁ Hind₂ σ₂ H₂, cases H₂ with σ'₂ }
+    { intro σ σ₂ H₂, cases H₂, exact rfl },
+    { intro x a σ σ₂ H₂, cases H₂, exact rfl },
+    { clear H₁ c σ σ₁,
+      intro c₁ c₂ σ σ' σ'' Hc₁ Hc₂ Hind₁ Hind₂ σ₂ H₂,
+      cases H₂,
+      apply Hind₂,
+      rewrite (Hind₁ σ'_1 H₁),
+      exact H₂_1
+    },
+    { clear H₁ c σ σ₁,
+      intro b c₁ c₂ σ σ' Hb Hc₁ Hind σ'₂ H₂,
+      cases H₂,
+      { exact Hind σ'_1 H₁ },
+      { have Hcontr : ff = tt, from (Hb_1⁻¹ ⬝ Hb), contradiction }
+    },
+    { clear H₁ c σ σ₁,
+      intro b c₁ c₂ σ σ' Hb Hc₁ Hind σ'₂ H₂,
+      cases H₂,
+      { exact bool.no_confusion (Hb_1⁻¹ ⬝ Hb) },
+      { exact Hind σ'_1 H₂_1 }
+    },
+    { clear H₁ c σ σ₁,
+      intro b c σ σ' σ'' Hb Hc Hwhile Hc_ind Hwhile_ind σ₂ H₂,
+      cases H₂,
+      { apply Hwhile_ind, rewrite (Hc_ind σ'_1 Hc_1), exact Hind },
+      { exact bool.no_confusion (Hb_1⁻¹ ⬝ Hb) }
+    },
+    { clear H₁ c σ σ₁,
+      intro b c σ Hb σ₂ H₂,
+      cases H₂,
+      { exact bool.no_confusion (Hb_1⁻¹ ⬝ Hb) },
+      { exact rfl }
+    }
   end
-end
+end bigstep

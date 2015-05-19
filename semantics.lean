@@ -11,7 +11,7 @@ open eq.ops
 
 -- should probably become part of the standard library at some point?
 
-definition bool.of_decidable (p : Prop) [dec : decidable p] : bool :=
+definition bool.from_decidable (p : Prop) [dec : decidable p] : bool :=
 match dec with
 | inl := tt
 | inr := ff
@@ -84,7 +84,7 @@ namespace BExp
 
   definition val (σ : Σ) : BExp → bool
   | true        := tt
-  | (leq a₁ a₂) := bool.of_decidable (A⟦a₁⟧σ < A⟦a₂⟧σ)
+  | (leq a₁ a₂) := bool.from_decidable (A⟦a₁⟧σ ≤ A⟦a₂⟧σ)
   | (not b)     := ¬val b
   | (b₁ && b₂)  := val b₁ && val b₂
 
@@ -147,36 +147,31 @@ namespace bigstep
     -- induction on H₁ for the predicate '∀σ₂, ⟨c, σ⟩⟱σ₂ → σ₁ = σ₂'
     revert H₂,
     revert σ₂,
-    eapply bigstep.induction_on H₁,
-    { intro σ σ₂ H₂, cases H₂, exact rfl },
-    { intro x a σ σ₂ H₂, cases H₂, exact rfl },
-    { clear H₁ c σ σ₁,
-      intro c₁ c₂ σ σ' σ'' Hc₁ Hc₂ Hind₁ Hind₂ σ₂ H₂,
-      cases H₂,
-      apply Hind₂,
-      rewrite (Hind₁ σ'_1 H₁),
+    induction H₁,
+    { intro σ₂ H₂, cases H₂, exact rfl },
+    { intro σ₂ H₂, cases H₂, exact rfl },
+    { intro σ₂ H₂',
+      cases H₂',
+      apply v_1,
+      rewrite (v_0 σ'_1 H₁_1),
       exact H₂_1
     },
-    { clear H₁ c σ σ₁,
-      intro b c₁ c₂ σ σ' Hb Hc₁ Hind σ'₂ H₂,
+    { intro σ₂ H₂,
       cases H₂,
-      { exact Hind σ'_1 H₁ },
+      { exact v_0 σ₂ H₁_1 },
       { exact bool.no_confusion (Hb_1⁻¹ ⬝ Hb) }
     },
-    { clear H₁ c σ σ₁,
-      intro b c₁ c₂ σ σ' Hb Hc₁ Hind σ'₂ H₂,
+    { intro σ₂ H₂,
       cases H₂,
       { exact bool.no_confusion (Hb_1⁻¹ ⬝ Hb) },
-      { exact Hind σ'_1 H₂_1 }
+      { exact v_0 σ₂ H₂_1 }
     },
-    { clear H₁ c σ σ₁,
-      intro b c σ σ' σ'' Hb Hc Hwhile Hc_ind Hwhile_ind σ₂ H₂,
+    { intro σ₂ H₂,
       cases H₂,
-      { apply Hwhile_ind, rewrite (Hc_ind σ'_1 Hc_1), exact Hind },
+      { apply v_1, rewrite (v_0 σ'_1 Hc_1), exact Hind_1 },
       { exact bool.no_confusion (Hb_1⁻¹ ⬝ Hb) }
     },
-    { clear H₁ c σ σ₁,
-      intro b c σ Hb σ₂ H₂,
+    { intro σ₂ H₂,
       cases H₂,
       { exact bool.no_confusion (Hb_1⁻¹ ⬝ Hb) },
       { exact rfl }

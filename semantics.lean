@@ -87,10 +87,10 @@ inductive bigstep : Com → Σ → Σ → Prop
 | skip {σ} : ⟨skip,σ⟩⟱σ
 | ass  {x a σ} : ⟨x ::= a,σ⟩⟱σ[x ↦ A⟦a⟧σ]
 | seq  {c c' σ σ' σ''} (h : ⟨c,σ⟩⟱σ') (h' : ⟨c',σ'⟩⟱σ'') : ⟨c;;c',σ⟩⟱σ''
-| if_tt {b cₜ cₑ σ σ'} (hb : B⟦b⟧σ = tt) (ht : ⟨cₜ,σ⟩⟱σ') : ⟨cond b cₜ cₑ,σ⟩⟱σ'
-| if_ff {b cₜ cₑ σ σ'} (hb : B⟦b⟧σ = ff) (he : ⟨cₑ,σ⟩⟱σ') : ⟨cond b cₜ cₑ,σ⟩⟱σ'
-| while_tt {b c σ σ' σ''} (hb : B⟦b⟧σ = tt) (hc : ⟨c,σ⟩⟱σ') (hind : ⟨while b c,σ'⟩⟱σ'') : ⟨while b c,σ⟩⟱σ''
-| while_ff {b c σ} (hb : B⟦b⟧σ = ff) : ⟨while b c,σ⟩⟱σ
+| if_tt {b cₜ cₑ σ σ'} (b_tt : B⟦b⟧σ = tt) (ht : ⟨cₜ,σ⟩⟱σ') : ⟨cond b cₜ cₑ,σ⟩⟱σ'
+| if_ff {b cₜ cₑ σ σ'} (b_ff : B⟦b⟧σ = ff) (he : ⟨cₑ,σ⟩⟱σ') : ⟨cond b cₜ cₑ,σ⟩⟱σ'
+| while_tt {b c σ σ' σ''} (b_tt : B⟦b⟧σ = tt) (hc : ⟨c,σ⟩⟱σ') (hind : ⟨while b c,σ'⟩⟱σ'') : ⟨while b c,σ⟩⟱σ''
+| while_ff {b c σ} (b_ff : B⟦b⟧σ = ff) : ⟨while b c,σ⟩⟱σ
 
 notation `⟨` c `,` σ `⟩⟱` σ':100 := bigstep c σ σ'
 
@@ -104,50 +104,43 @@ namespace bigstep
      show ⟨cond b (c;; while b c) Com.skip, σ⟩⟱σ',
      begin
        cases h,
-       { apply bigstep.if_tt hb (bigstep.seq hc hind) },
-       { apply bigstep.if_ff hb bigstep.skip }
+       { apply bigstep.if_tt b_tt (bigstep.seq hc hind) },
+       { apply bigstep.if_ff b_ff bigstep.skip }
      end)
     (assume h : ⟨cond b (c;; while b c) Com.skip, σ⟩⟱σ',
      show ⟨while b c, σ⟩⟱σ',
      begin
        cases h,
-       { cases ht, apply bigstep.while_tt hb h_1 h' },
-       { cases he, apply bigstep.while_ff hb }
+       { cases ht, apply bigstep.while_tt b_tt h_1 h' },
+       { cases he, apply bigstep.while_ff b_ff }
      end)
 
   lemma deterministic (h₁ : ⟨c, σ⟩⟱σ₁) (h₂ : ⟨c, σ⟩⟱σ₂) : σ₁ = σ₂ :=
   begin
-    -- induction on h₁ for the predicate '∀ σ₂, ⟨c, σ⟩⟱σ₂ → σ₁ = σ₂'
-    revert h₂,
-    revert σ₂,
-    induction h₁,
-    { intros σ₂ h₂, cases h₂, exact rfl },
-    { intros σ₂ h₂, cases h₂, exact rfl },
-    { intros σ₂ h₂,
+    induction h₁ generalizing σ₂,
+    case skip { cases h₂, exact rfl },
+    case ass { cases h₂, exact rfl },
+    case seq c c' σ σ₁ σ₂ h₁ h₁' ih ih' {
       cases h₂,
-      apply ih_2,
-      rewrite ih_1 h_1,
+      apply ih',
+      rewrite ih h,
       assumption
     },
-    { intros σ₂ h₂,
-      cases h₂,
-      { exact ih_1 hₜ_1 },
-      { rewrite hb_1 at hb, contradiction }
+    case if_tt { cases h₂,
+      case if_tt { exact ih_1 ht_1 },
+      case if_ff { rewrite b_ff at b_tt, contradiction }
     },
-    { intros σ₂ h₂,
-      cases h₂,
-      { rewrite hb_1 at hb, contradiction },
-      { exact ih_1 hₑ_1 }
+    case if_ff { cases h₂,
+      case if_tt { rewrite b_ff at b_tt, contradiction },
+      case if_ff { exact ih_1 he_1 }
     },
-    { intros σ₂ h₂,
-      cases h₂,
-      { apply ih_2, rewrite ih_1 hc_1, assumption },
-      { rewrite hb_1 at hb, contradiction }
+    case while_tt { cases h₂,
+      case while_tt { apply ih_2, rewrite ih_1 hc_1, assumption },
+      case while_ff { rewrite b_ff at b_tt, contradiction }
     },
-    { intros σ₂ h₂,
-      cases h₂,
-      { rewrite hb_1 at hb, contradiction },
-      { exact rfl }
+    case while_ff { cases h₂,
+      case while_tt σ' { rewrite b_ff at b_tt, contradiction },
+      case while_ff { exact rfl }
     }
   end
 end bigstep

@@ -80,7 +80,7 @@ infix `;; `:30  := seq
 
 example: Com := "x" ::= ↑1;; while ("x" ≤ ↑4) ("x" ::= "x" * ↑2)
 
--- chapter 3.1: a bigstep semantics of While
+-- chapter 4.1: a bigstep semantics of While
 
 inductive bigstep : Com → Σ → Σ → Prop
   notation `⟨` c `,` σ `⟩⟱` σ':100 := bigstep c σ σ'
@@ -115,16 +115,22 @@ namespace bigstep
        { cases he, apply bigstep.while_ff b_ff }
      end)
 
+  -- chapter 4.2
   lemma deterministic (h₁ : ⟨c, σ⟩⟱σ₁) (h₂ : ⟨c, σ⟩⟱σ₂) : σ₁ = σ₂ :=
   begin
     induction h₁ generalizing σ₂,
-    case skip { cases h₂, exact rfl },
-    case ass { cases h₂, exact rfl },
-    case seq c c' σ σ₁ σ₂ h₁ h₁' ih ih' {
-      cases h₂,
+    case skip { cases h₂, refl },
+    case ass { cases h₂, refl },
+    case seq c c' σ σ₁' σ₁ h₁ h₁' ih₁ ih₂ {
+      cases ‹⟨c;; c', σ⟩⟱σ₂›, case bigstep.seq σ₂' {
+        have σ₁' = σ₂',    from ih₁ ‹⟨c, σ⟩⟱σ₂'›,
+        have ⟨c', σ₁'⟩⟱σ₂, by simp [this, ‹⟨c', σ₂'⟩⟱σ₂›],
+        show σ₁ = σ₂,      from ih₂ this
+      },
+      /- cases h₂,
       apply ih',
       rewrite ih h,
-      assumption
+      assumption -/
     },
     case if_tt { cases h₂,
       case if_tt { exact ih_1 ht_1 },
@@ -139,8 +145,25 @@ namespace bigstep
       case while_ff { rewrite b_ff at b_tt, contradiction }
     },
     case while_ff { cases h₂,
-      case while_tt σ' { rewrite b_ff at b_tt, contradiction },
+      case while_tt { rewrite b_ff at b_tt, contradiction },
       case while_ff { exact rfl }
     }
   end
 end bigstep
+
+-- chapter 4.3: a bigstep semantics of While
+
+inductive smallstep : Com → Σ → Com → Σ → Prop
+  notation `⟨` c `, ` σ `⟩` ` →₁ ` `⟨` c' `, ` σ' `⟩` := smallstep c σ c' σ'
+| ass {x a σ} : ⟨x ::= a,σ⟩ →₁ ⟨skip, σ[x ↦ A⟦a⟧σ]⟩
+| seq₁ {c₁ σ c₁' σ' c₂} (h : ⟨c₁,σ⟩ →₁ ⟨c₁', σ'⟩) : ⟨c₁;;c₂,σ⟩ →₁ ⟨c₁';;c₂,σ'⟩
+| seq₂ {c σ} : ⟨skip;;c,σ⟩ →₁ ⟨c,σ⟩
+| if_tt {b cₜ cₜ' cₑ σ σ'} (b_tt : B⟦b⟧σ = tt) (ht : ⟨cₜ,σ⟩ →₁ ⟨cₜ',σ'⟩) : ⟨cond b cₜ cₑ,σ⟩ →₁ ⟨cond b cₜ' cₑ,σ'⟩
+| if_ff {b cₜ cₑ cₑ' σ σ'} (b_ff : B⟦b⟧σ = ff) (he : ⟨cₑ,σ⟩ →₁ ⟨cₑ',σ'⟩) : ⟨cond b cₜ cₑ,σ⟩ →₁ ⟨cond b cₜ cₑ',σ'⟩
+| while {b c σ} : ⟨while b c,σ⟩ →₁ ⟨cond b (c;;while b c) skip,σ⟩
+
+notation `⟨` c `,` σ `⟩` ` →₁ ` `⟨` c' `,` σ' `⟩` := smallstep c σ c' σ'
+
+def blocked c σ := ∀ c' σ', ¬ ⟨c, σ⟩ →₁ ⟨c', σ'⟩
+
+notation `⟨` c `,` σ `⟩` ` ↛₁` := blocked c σ

@@ -82,33 +82,100 @@ example: Com := "x" ::= ↑1;; while ("x" ≤ ↑4) ("x" ::= "x" * ↑2)
 
 -- chapter 4.1: a bigstep semantics of While
 
-inductive bigstep : Com → Σ → Σ → Prop
-  notation `⟨` c `,` σ `⟩⟱` σ':100 := bigstep c σ σ'
-| skip {σ} : ⟨skip,σ⟩⟱σ
-| ass  {x a σ} : ⟨x ::= a,σ⟩⟱σ[x ↦ A⟦a⟧σ]
-| seq  {c c' σ σ' σ''} (h : ⟨c,σ⟩⟱σ') (h' : ⟨c',σ'⟩⟱σ'') : ⟨c;;c',σ⟩⟱σ''
-| if_tt {b cₜ cₑ σ σ'} (b_tt : B⟦b⟧σ = tt) (ht : ⟨cₜ,σ⟩⟱σ') : ⟨cond b cₜ cₑ,σ⟩⟱σ'
-| if_ff {b cₜ cₑ σ σ'} (b_ff : B⟦b⟧σ = ff) (he : ⟨cₑ,σ⟩⟱σ') : ⟨cond b cₜ cₑ,σ⟩⟱σ'
-| while_tt {b c σ σ' σ''} (b_tt : B⟦b⟧σ = tt) (hc : ⟨c,σ⟩⟱σ') (hind : ⟨while b c,σ'⟩⟱σ'') : ⟨while b c,σ⟩⟱σ''
-| while_ff {b c σ} (b_ff : B⟦b⟧σ = ff) : ⟨while b c,σ⟩⟱σ
+inductive bigstep : Com × Σ → Σ → Prop
+  notation cs `⇓` σ':100 := bigstep cs σ'
+| skip {σ} : ⟨skip,σ⟩⇓σ
+| ass  {x a σ} : ⟨x ::= a,σ⟩⇓σ[x ↦ A⟦a⟧σ]
+| seq  {c c' σ σ' σ''} (h : ⟨c,σ⟩⇓σ') (h' : ⟨c',σ'⟩⇓σ'') : ⟨c;;c',σ⟩⇓σ''
+| if_tt {b cₜ cₑ σ σ'} (b_tt : B⟦b⟧σ = tt) (ht : ⟨cₜ,σ⟩⇓σ') : ⟨cond b cₜ cₑ,σ⟩⇓σ'
+| if_ff {b cₜ cₑ σ σ'} (b_ff : B⟦b⟧σ = ff) (he : ⟨cₑ,σ⟩⇓σ') : ⟨cond b cₜ cₑ,σ⟩⇓σ'
+| while_tt {b c σ σ' σ''} (b_tt : B⟦b⟧σ = tt) (hc : ⟨c,σ⟩⇓σ') (hind : ⟨while b c,σ'⟩⇓σ'') : ⟨while b c,σ⟩⇓σ''
+| while_ff {b c σ} (b_ff : B⟦b⟧σ = ff) : ⟨while b c,σ⟩⇓σ
 
-notation `⟨` c `,` σ `⟩⟱` σ':100 := bigstep c σ σ'
+notation cs `⇓`:1000 σ':100 := bigstep cs σ'
+
+/-
+@[recursor 5]
+protected def bigstep.rec_on' : ∀ {C : Com → (Var → ℤ) → (Var → ℤ) → Prop} {a : Com} {a_1 a_2 : Var → ℤ},
+  ⟨a,a_1⟩⇓a_2 →
+  (∀ {σ : Var → ℤ}, C skip σ σ) →
+  (∀ {x : Var} {a : AExp} {σ : Var → ℤ}, C (x ::= a) σ σ[x ↦ A⟦a⟧σ]) →
+  (∀ {c c' : Com} {σ σ' σ'' : Var → ℤ},
+     ⟨c,σ⟩⇓σ' → ⟨c',σ'⟩⇓σ'' → C c σ σ' → C c' σ' σ'' → C (c;; c') σ σ'') →
+  (∀ {b : BExp} {cₜ cₑ : Com} {σ σ' : Var → ℤ},
+     B⟦b⟧σ = tt → ⟨cₜ,σ⟩⇓σ' → C cₜ σ σ' → C (cond b cₜ cₑ) σ σ') →
+  (∀ {b : BExp} {cₜ cₑ : Com} {σ σ' : Var → ℤ},
+     B⟦b⟧σ = ff → ⟨cₑ,σ⟩⇓σ' → C cₑ σ σ' → C (cond b cₜ cₑ) σ σ') →
+  (∀ {b : BExp} {c : Com} {σ σ' σ'' : Var → ℤ},
+     B⟦b⟧σ = tt →
+     ⟨c,σ⟩⇓σ' →
+     ⟨while b c,σ'⟩⇓σ'' → C c σ σ' → C (while b c) σ' σ'' → C (while b c) σ σ'') →
+  (∀ {b : BExp} {c : Com} {σ : Var → ℤ}, B⟦b⟧σ = ff → C (while b c) σ σ) → C a a_1 a_2 :=
+λ {C : Com → (Var → ℤ) → (Var → ℤ) → Prop} {a : Com} {a_1 a_2 : Var → ℤ} (n : ⟨a,a_1⟩⇓a_2)
+(e_1 : ∀ {σ : Var → ℤ}, C skip σ σ)
+(e_2 : ∀ {x : Var} {a : AExp} {σ : Var → ℤ}, C (x ::= a) σ σ[x ↦ A⟦a⟧σ])
+(e_3 :
+  ∀ {c c' : Com} {σ σ' σ'' : Var → ℤ},
+    ⟨c,σ⟩⇓σ' → ⟨c',σ'⟩⇓σ'' → C c σ σ' → C c' σ' σ'' → C (c;; c') σ σ'')
+(e_4 :
+  ∀ {b : BExp} {cₜ cₑ : Com} {σ σ' : Var → ℤ},
+    B⟦b⟧σ = tt → ⟨cₜ,σ⟩⇓σ' → C cₜ σ σ' → C (cond b cₜ cₑ) σ σ')
+(e_5 :
+  ∀ {b : BExp} {cₜ cₑ : Com} {σ σ' : Var → ℤ},
+    B⟦b⟧σ = ff → ⟨cₑ,σ⟩⇓σ' → C cₑ σ σ' → C (cond b cₜ cₑ) σ σ')
+(e_6 :
+  ∀ {b : BExp} {c : Com} {σ σ' σ'' : Var → ℤ},
+    B⟦b⟧σ = tt →
+    ⟨c,σ⟩⇓σ' → ⟨while b c,σ'⟩⇓σ'' → C c σ σ' → C (while b c) σ' σ'' → C (while b c) σ σ'')
+(e_7 : ∀ {b : BExp} {c : Com} {σ : Var → ℤ}, B⟦b⟧σ = ff → C (while b c) σ σ),
+  sorry --bigstep.rec e_1 e_2 e_3 e_4 e_5 e_6 e_7 n-/
+
+namespace tactic.interactive
+  open lean.parser interactive interactive.types
+  open tactic
+
+  local postfix `?`:9001 := optional
+  local postfix *:9001 := many
+
+  meta def ginduction' (p : parse texpr) (rec_name : parse using_ident) (ids : parse with_ident_list)
+    (revert : parse $ (tk "generalizing" *> ident*)?)
+  : tactic unit :=
+  do h ← i_to_expr p,
+     t ← infer_type h,
+     let nonlocals := t.get_app_args.filter (λ arg, not arg.is_local_constant),
+     if nonlocals = [] then
+       induction (to_pexpr p) rec_name ids revert
+     else do {
+       hn ← nonlocals.mmap $ λ arg, do {
+         n ← revert_kdeps arg,
+         tactic.generalize arg,
+         intron n,
+         let locals := arg.fold list.nil (λ e _ acc, if e.is_local_constant then e::acc else acc),
+         locals.mfor' tactic.clear,
+         --generalize2 (to_pexpr arg) `x `gind,
+         pure h
+       },
+       h ← intro1,
+       induction (to_pexpr h) rec_name ids revert
+       --all_goals (hn.mfor' $ λ h, do rw h at *])
+     }
+end tactic.interactive
 
 namespace bigstep
   variables {b : BExp} {c : Com}
   variables {σ σ' σ₁ σ₂ : Σ}
 
-  lemma unroll_loop : ⟨while b c, σ⟩⟱σ' ↔ ⟨cond b (c;; while b c) Com.skip, σ⟩⟱σ' :=
+  lemma unroll_loop : ⟨while b c, σ⟩⇓σ' ↔ ⟨cond b (c;; while b c) Com.skip, σ⟩⇓σ' :=
   iff.intro
-    (assume h : ⟨while b c, σ⟩⟱σ',
-     show ⟨cond b (c;; while b c) Com.skip, σ⟩⟱σ',
+    (assume h : ⟨while b c, σ⟩⇓σ',
+     show ⟨cond b (c;; while b c) Com.skip, σ⟩⇓σ',
      begin
        cases h,
        { apply bigstep.if_tt b_tt (bigstep.seq hc hind) },
        { apply bigstep.if_ff b_ff bigstep.skip }
      end)
-    (assume h : ⟨cond b (c;; while b c) Com.skip, σ⟩⟱σ',
-     show ⟨while b c, σ⟩⟱σ',
+    (assume h : ⟨cond b (c;; while b c) Com.skip, σ⟩⇓σ',
+     show ⟨while b c, σ⟩⇓σ',
      begin
        cases h,
        { cases ht, apply bigstep.while_tt b_tt h_1 h' },
@@ -116,45 +183,41 @@ namespace bigstep
      end)
 
   -- chapter 4.2
-  lemma deterministic (h₁ : ⟨c, σ⟩⟱σ₁) (h₂ : ⟨c, σ⟩⟱σ₂) : σ₁ = σ₂ :=
+  lemma deterministic (h₁ : ⟨c, σ⟩⇓σ₁) (h₂ : ⟨c, σ⟩⇓σ₂) : σ₁ = σ₂ :=
   begin
-    induction h₁ generalizing σ₂,
+    ginduction' h₁ generalizing σ₂,
     case skip { cases h₂, refl },
     case ass { cases h₂, refl },
-    case seq c c' σ σ₁' σ₁ h₁ h₁' ih₁ ih₂ {
-      cases ‹⟨c;; c', σ⟩⟱σ₂›, case bigstep.seq σ₂' {
-        have σ₁' = σ₂',    from ih₁ ‹⟨c, σ⟩⟱σ₂'›,
-        have ⟨c', σ₁'⟩⟱σ₂, by simp [this, ‹⟨c', σ₂'⟩⟱σ₂›],
-        show σ₁ = σ₂,      from ih₂ this
+    case seq c c' σ σ₁' σ₁ {
+      cases h₂, case bigstep.seq σ₂' {
+        have: σ₁' = σ₂',    from ih_1 ‹⟨c, σ⟩⇓σ₂'›,
+        have: ⟨c', σ₁'⟩⇓σ₂, by simp [this, ‹⟨c', σ₂'⟩⇓σ₂›],
+        show σ₁ = σ₂,       from ih_2 this
       },
-      /- cases h₂,
-      apply ih',
-      rewrite ih h,
-      assumption -/
     },
     case if_tt { cases h₂,
-      case if_tt { exact ih_1 ht_1 },
-      case if_ff { rewrite b_ff at b_tt, contradiction }
+      case if_tt { exact ih_1 ‹⟨cₜ, σ⟩⇓σ₂› },
+      case if_ff { rw b_ff at b_tt, contradiction }
     },
     case if_ff { cases h₂,
-      case if_tt { rewrite b_ff at b_tt, contradiction },
-      case if_ff { exact ih_1 he_1 }
+      case if_tt { rw b_ff at b_tt, contradiction },
+      case if_ff { exact ih_1 ‹⟨cₑ, σ⟩⇓σ₂› }
     },
     case while_tt { cases h₂,
-      case while_tt { apply ih_2, rewrite ih_1 hc_1, assumption },
-      case while_ff { rewrite b_ff at b_tt, contradiction }
+      case while_tt σ₂' { apply ih_2, rw ih_1 ‹⟨c, σ⟩⇓σ₂'›, assumption },
+      case while_ff { rw b_ff at b_tt, contradiction }
     },
     case while_ff { cases h₂,
-      case while_tt { rewrite b_ff at b_tt, contradiction },
-      case while_ff { exact rfl }
+      case while_tt { rw b_ff at b_tt, contradiction },
+      case while_ff { refl }
     }
   end
 end bigstep
 
--- chapter 4.3: a bigstep semantics of While
+-- chapter 4.3: a smallstep semantics of While
 
-inductive smallstep : Com → Σ → Com → Σ → Prop
-  notation `⟨` c `, ` σ `⟩` ` →₁ ` `⟨` c' `, ` σ' `⟩` := smallstep c σ c' σ'
+inductive smallstep : Com × Σ → Com × Σ → Prop
+  infix ` →₁ `:50 := smallstep
 | ass {x a σ} : ⟨x ::= a,σ⟩ →₁ ⟨skip, σ[x ↦ A⟦a⟧σ]⟩
 | seq₁ {c₁ σ c₁' σ' c₂} (h : ⟨c₁,σ⟩ →₁ ⟨c₁', σ'⟩) : ⟨c₁;;c₂,σ⟩ →₁ ⟨c₁';;c₂,σ'⟩
 | seq₂ {c σ} : ⟨skip;;c,σ⟩ →₁ ⟨c,σ⟩
@@ -162,8 +225,24 @@ inductive smallstep : Com → Σ → Com → Σ → Prop
 | if_ff {b cₜ cₑ cₑ' σ σ'} (b_ff : B⟦b⟧σ = ff) (he : ⟨cₑ,σ⟩ →₁ ⟨cₑ',σ'⟩) : ⟨cond b cₜ cₑ,σ⟩ →₁ ⟨cond b cₜ cₑ',σ'⟩
 | while {b c σ} : ⟨while b c,σ⟩ →₁ ⟨cond b (c;;while b c) skip,σ⟩
 
-notation `⟨` c `,` σ `⟩` ` →₁ ` `⟨` c' `,` σ' `⟩` := smallstep c σ c' σ'
+infix ` →₁ `:50 := smallstep
 
-def blocked c σ := ∀ c' σ', ¬ ⟨c, σ⟩ →₁ ⟨c', σ'⟩
+def blocked κ := ∀ κ', ¬ κ →₁ κ'
 
-notation `⟨` c `,` σ `⟩` ` ↛₁` := blocked c σ
+postfix ` ̸→₁`:50 := blocked
+
+
+universe u
+
+def binrel (α : Type u) := α → α → Prop
+
+inductive rtrancl {α : Type u} (r : binrel α) : binrel α
+| refl (a : α) : rtrancl a a
+| step {a b c} : rtrancl a b → r b c → rtrancl a c
+
+
+infix ` →₁* `:50 := rtrancl (→₁)
+
+namespace smallstep
+  lemma blocked_skip (σ) : ⟨skip, σ⟩ ̸→₁.
+end smallstep

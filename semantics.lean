@@ -100,40 +100,6 @@ inductive bigstep : Com × Σ → Σ → Prop
 
 notation cs `⇓`:1000 σ':100 := bigstep cs σ'
 
-namespace tactic.interactive
-  open lean
-  open lean.parser interactive interactive.types
-  open tactic
-
-  local postfix `?`:9001 := optional
-  local postfix *:9001 := many
-
-  meta def ginduction' (p : parse texpr) (rec_name : parse using_ident) (ids : parse with_ident_list)
-    (revert : parse $ (tk "generalizing" *> ident*)?)
-  : tactic unit :=
-  do h ← i_to_expr p,
-     t ← infer_type h,
-     let nonlocals := t.get_app_args.filter (λ arg, not arg.is_local_constant),
-     if nonlocals = [] then
-       induction (to_pexpr p) rec_name ids revert
-     else do {
-       hn ← nonlocals.mmap $ λ arg, do {
-         n ← revert_kdeps arg,
-         tactic.generalize arg,
-         intron n,
-         let locals := arg.fold list.nil (λ e _ acc, if e.is_local_constant then e::acc else acc),
-         locals.mfor' tactic.clear,
-         --generalize2 (to_pexpr arg) `x `gind,
-         pure h
-       },
-       h ← intro1,
-       induction (to_pexpr h) rec_name ids revert
-       --all_goals (hn.mfor' $ λ h, do rw h at *])
-     }
-
-open expr
-end tactic.interactive
-
 namespace bigstep
   variables {b : BExp} {c : Com}
   variables {σ σ' σ₁ σ₂ : Σ}
@@ -158,7 +124,7 @@ namespace bigstep
   -- chapter 4.2
   lemma deterministic (h₁ : ⟨c, σ⟩⇓σ₁) (h₂ : ⟨c, σ⟩⇓σ₂) : σ₁ = σ₂ :=
   begin
-    ginduction' h₁ generalizing σ₂,
+    induction h₁ generalizing σ₂,
     case skip { cases h₂, refl },
     case ass { cases h₂, refl },
     case seq c c' σ σ₁' σ₁ {
@@ -234,11 +200,10 @@ begin
     { exact let ⟨c', σ', _⟩ := ih_1 ‹c ≠ skip› in ⟨_, _, seq₁ ‹⟨c, σ⟩ →₁ ⟨c', σ'⟩›⟩ }
   },
   case Com.cond {
-    generalize2 (B⟦b⟧σ) i j,
-    --generalize' : b = B⟦b⟧σ,
+    generalize h : B⟦b⟧σ = b,
     cases b,
-    { exact ⟨_, _, if_ff this.symm⟩ },
-    { exact ⟨_, _, if_tt this.symm⟩ }
+    { exact ⟨_, _, if_ff h⟩ },
+    { exact ⟨_, _, if_tt h⟩ }
   },
   case Com.while { exact ⟨_, _, while⟩ }
 end
